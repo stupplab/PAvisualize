@@ -320,7 +320,7 @@ def draw_points_and_lines(points, lines, color):
 
 
 
-def draw_snapshot(itpfile, topfile, grofile, trrfile, frame, filename, box=None, draw_box=True):
+def draw_snapshot(itpfile, topfile, grofile, trrfile, bonds_alkyl, frame, filename, box, draw_box=True):
     """Draw the minimal form of the simulation 
     Takes in atom coordinates and bonds
     """
@@ -337,7 +337,7 @@ def draw_snapshot(itpfile, topfile, grofile, trrfile, frame, filename, box=None,
     num_atoms    = get_num_atoms(itpfile)
     nmol         = get_num_molecules(topfile, itpname)
     positions    = get_positions(grofile, trrfile, (0,num_atoms*nmol))
-   
+    
     
     num_frames = positions.shape[0]  
     
@@ -347,32 +347,10 @@ def draw_snapshot(itpfile, topfile, grofile, trrfile, frame, filename, box=None,
     Lz = box['Lz']    
 
 
-    if centralize:
-        # Doesnt work correctly for now
-        pos_ = np.copy(positions.reshape(num_frames, nmol, num_atoms, 3))
-        pos_[:,:] = pos_[:,:,0].reshape(num_frames,nmol,1,3)
-        pos_ = pos_.reshape(num_frames,-1,3)
-
-        positions = PAanalysis.unwrap_points(positions, pos_, Lx,Ly,Lz)
-        
-        positions -= np.mean(positions, axis=1).reshape(-1,1,3)
-        # positions += [Lx/2, Ly/2, Lz/2]
-
-    
-
-    mol_color = [84,39,143,0.6] #[117,107,177, 0.6]
     light_green = [161,215,106]
-    yellow = [255, 217, 0]
     purple = [118,42,131]
-    pink = [197,27,125]
-    orange = [255,127,0]
-    blue = [84,39,143]
-    red = [165,15,21]
-    mol_color = [84,39,143,0.6]
     alkyl_color = purple+[0.6]
-    pep_color = blue+[0.7]
-
-    colors = [yellow, blue, red, light_green]
+    pep_color = light_green+[0.6]
 
     
     def dump_frame(frame):
@@ -428,7 +406,7 @@ def draw_snapshot(itpfile, topfile, grofile, trrfile, frame, filename, box=None,
         fig.scene.parallel_projection = True # orthogonal projection
         
         
-        mlab.savefig(sim_path+filename)
+        mlab.savefig(filename)
         mlab.close()
 
 
@@ -441,7 +419,7 @@ def draw_snapshot(itpfile, topfile, grofile, trrfile, frame, filename, box=None,
 
 
 
-def draw_movie(itpfile, topfile, grofile, trrfile, box=None, draw_box=True, centralize=False):
+def draw_movie(itpfile, topfile, grofile, trrfile, bonds_alkyl, filename, box, draw_box=True, centralize=False):
     """Draw the minimal form of the simulation 
     Takes in atom coordinates and bonds
     """
@@ -463,9 +441,12 @@ def draw_movie(itpfile, topfile, grofile, trrfile, box=None, draw_box=True, cent
     num_frames = positions.shape[0]  
     
     
+    
     Lx = box['Lx']
     Ly = box['Ly']
     Lz = box['Lz']    
+
+    sim_path = os.path.dirname(filename)+'/'
 
 
     if centralize:
@@ -481,19 +462,10 @@ def draw_movie(itpfile, topfile, grofile, trrfile, box=None, draw_box=True, cent
 
     
 
-    mol_color = [84,39,143,0.6] #[117,107,177, 0.6]
     light_green = [161,215,106]
-    yellow = [255, 217, 0]
     purple = [118,42,131]
-    pink = [197,27,125]
-    orange = [255,127,0]
-    blue = [84,39,143]
-    red = [165,15,21]
-    mol_color = [84,39,143,0.6]
     alkyl_color = purple+[0.6]
-    pep_color = blue+[0.7]
-
-    colors = [yellow, blue, red, light_green]
+    pep_color = light_green+[0.6]
 
     
     def dump_frame(frame,index):
@@ -560,7 +532,7 @@ def draw_movie(itpfile, topfile, grofile, trrfile, box=None, draw_box=True, cent
         dump_frame(frame,i)
            
 
-    filename = sim_path+'movie.mp4'
+    
     os.system(f'ffmpeg -framerate 10 -i {sim_path}/%04d.png -s:v 1080x1080 -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p \
         {filename}')
     
