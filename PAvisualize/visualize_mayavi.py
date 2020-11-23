@@ -751,7 +751,6 @@ def interactive_scene(itpfile, topfile, grofile, trrfile, bonds_alkyl,
     
 
 
-
     mol_color = [84,39,143,0.6] #[117,107,177, 0.6]
     light_green = [161,215,106]
     yellow = [255, 217, 0]#[255,255,191]
@@ -793,22 +792,26 @@ def interactive_scene(itpfile, topfile, grofile, trrfile, bonds_alkyl,
 
 
         x=X[:,0]; y=X[:,1]; z=X[:,2]
+        
         src_alkyl = mlab.pipeline.scalar_scatter(x, y, z)
         src_alkyl.mlab_source.dataset.lines = connections_alkyl
         src_alkyl.update()
-        surf_alkyl = mlab.pipeline.surface(src_alkyl, color=tuple(np.array(alkyl_color[:3])/255),
-                opacity=alkyl_color[3], line_width=1., figure=fig)
-
+        surf_alkyl = mlab.pipeline.surface(src_alkyl, 
+            color=tuple(np.array(alkyl_color[:3])/255),
+            opacity=alkyl_color[3], 
+            line_width=1., figure=fig)
+    
         src_pep = mlab.pipeline.scalar_scatter(x, y, z)
         src_pep.mlab_source.dataset.lines = connections_pep
         src_pep.update()
-        surf_pep = mlab.pipeline.surface(src_pep, color=tuple(np.array(pep_color[:3])/255),
-                opacity=pep_color[3], line_width=2, figure=fig)
-
-
+        surf_pep = mlab.pipeline.surface(src_pep, 
+            color=tuple(np.array(pep_color[:3])/255),
+            opacity=pep_color[3], 
+            line_width=2, figure=fig)
+    
         
         if draw_box:
-            box_color = [0,0,0,0.6]#[204,204,204, 0.7]
+            box_color = [0,0,0,0.6]
             mlab_box(box_color, box)
             mlab_drawaxes(box_color, box)
         
@@ -871,13 +874,192 @@ def interactive_scene(itpfile, topfile, grofile, trrfile, bonds_alkyl,
 
                     
     
-    mlab.figure(bgcolor=(1, 1, 1), size=(400, 400))
+    mlab.figure(bgcolor=(1,1,1), size=(400, 400))
     mlab.gcf().scene.parallel_projection = True # orthogonal projection
     
     my_model = MyModel()
     my_model.configure_traits()
     
     
+
+
+
+
+def interactive_scene_Janus_coloring(itpfile, topfile, grofile, trrfile, bonds_alkyl, 
+    box, draw_box=True, mol_indices=None, atom_indices=None, centralize=False, unbreak_molecules=False,
+    colors=None, cmap_bins=None):
+    ''' itpnames is the list of names of different molecules that
+    mol_indices is a list of molecules indices to be drawn. None will draw all molecules
+    '''
+    bonds_permol =[]
+    num_atoms    =[]
+    nmol         =[]
+    positions    =[]
+
+        
+    itpname = os.path.basename(itpfile).strip('.itp')
+
+    bonds_permol = get_bonds_per_molecule(itpfile)
+    num_atoms    = get_num_atoms(itpfile)
+    nmol         = get_num_molecules(topfile, itpname)
+    positions    = get_positions(grofile, trrfile, (0,num_atoms*nmol))
+    
+
+    Lx = box['Lx']
+    Ly = box['Ly']
+    Lz = box['Lz']    
+    
+    num_frames = positions.shape[0]  
+    
+
+    if mol_indices != None:
+        positions = positions.reshape(-1,nmol,num_atoms,3)[:,mol_indices]
+        nmol = len(mol_indices)
+        positions = positions.reshape(-1,nmol*num_atoms,3)
+
+
+    if atom_indices != None:
+        bonds_permol_=[]
+        for b in bonds_permol:
+            if (b[0] in atom_indices) and (b[1] in atom_indices):
+                bonds_permol_ += [b]
+        bonds_permol = bonds_permol_
+
+    if unbreak_molecules:
+        # draw the whole together even if it means to put it outside the box
+        positions = positions.reshape(-1,nmol,num_atoms,3)
+        for frame,frame_positions in enumerate(positions):
+            for mol_index, pos in enumerate(frame_positions):
+                positions[frame,mol_index] = unwrap_points(pos, np.array([pos[0]]*len(pos)), Lx, Ly, Lz)
+        positions = positions.reshape(-1,nmol*num_atoms,3)
+
+
+    if centralize:
+        positions -= np.mean(positions, axis=1, keepdims=True)
+
+
+    
+
+
+
+    color0 = colors[0]
+    color1 = colors[1]
+    
+
+    def draw_frame(frame, fig):
+
+        connections = []
+        connections_color0 = []
+        connections_color1 = []
+        for i in range(nmol):
+            for bond in bonds_permol:
+                X1 = positions[ frame, bond[0] + num_atoms*i ]
+                X2 = positions[ frame, bond[1] + num_atoms*i ]
+                if not np.linalg.norm(X1-X2) > 0.5*min( [Lx,Ly,Lz] ):
+                    connection = bond+num_atoms*i
+                    connections = connections + [ connection ]
+                    if cmap_bins[connection[0]] == 0:
+                        connections_color0 += [ connection ]
+                    else:
+                        connections_color1 += [ connection ]
+
+        
+        X = positions[frame]
+        connections = np.array(connections)
+        connections_color0 = np.array(connections_color0)
+        connections_color1 = np.array(connections_color1)
+
+
+        x=X[:,0]; y=X[:,1]; z=X[:,2]
+        
+        # Note very happy about writing a very specific subroutine for this
+        src0 = mlab.pipeline.scalar_scatter(x, y, z)
+        src0.mlab_source.dataset.lines = connections_color0
+        src0.update()
+        surf0 = mlab.pipeline.surface(src0,
+            color=tuple(np.array(color0[:3])/255),
+            opacity=color0[3], 
+            line_width=2., figure=fig)
+        src1 = mlab.pipeline.scalar_scatter(x, y, z)
+        src1.mlab_source.dataset.lines = connections_color1
+        src1.update()
+        surf1 = mlab.pipeline.surface(src1, 
+            color=tuple(np.array(color1[:3])/255),
+            opacity=color1[3], 
+            line_width=2, figure=fig)    
+
+        
+        if draw_box:
+            box_color = [0,0,0,0.6]#[204,204,204, 0.7]
+            mlab_box(box_color, box)
+            mlab_drawaxes(box_color, box)
+        
+        mlab.view(azimuth=35, elevation=35, roll=0, distance=40, focalpoint=None)
+        fig.scene.parallel_projection = True # orthogonal projection
+        
+        return surf0, surf1, src0, src1
+
+
+
+    def update_frame(frame, surf0, surf1, src0, src1):
+        
+        connections = []
+        connections_color0 = []
+        connections_color1 = []
+        for i in range(nmol):
+            for bond in bonds_permol:
+                X1 = positions[ frame, bond[0] + num_atoms*i ]
+                X2 = positions[ frame, bond[1] + num_atoms*i ]
+                if not np.linalg.norm(X1-X2) > 0.5*min( [Lx,Ly,Lz] ):
+                    connection = bond+num_atoms*i
+                    connections = connections + [ connection ]
+                    if cmap_bins[connection[0]] == 0:
+                        connections_color0 += [ connection ]
+                    else:
+                        connections_color1 += [ connection ]
+
+        
+        X = positions[frame]
+        connections = np.array(connections)
+        connections_color0 = np.array(connections_color0)
+        connections_color1 = np.array(connections_color1)
+
+        x=X[:,0]; y=X[:,1]; z=X[:,2]
+        surf0.mlab_source.reset(x=x,y=y,z=z)
+        src0.mlab_source.dataset.lines = connections_color0
+        
+        surf1.mlab_source.reset(x=x,y=y,z=z)
+        src1.mlab_source.dataset.lines = connections_color1
+
+
+
+    class MyModel(HasTraits):
+        # slider = Range(-10, num_frames, .1)
+        slider = Range(0, num_frames-1, 0, mode='slider')
+        scene  = Instance(MlabSceneModel, (), width=10)
+
+        def __init__(self):
+            HasTraits.__init__(self)
+            self.args = draw_frame(0,fig=self.scene.mayavi_scene)
+
+
+        @on_trait_change('slider')
+        def slider_changed(self):
+            update_frame(self.slider, *self.args)
+        
+
+        view = View(Item('scene'),
+                    Group("slider"), width=400,
+                    resizable=True)
+
+                    
+    
+    mlab.figure(bgcolor=(1,1,1), size=(400, 400))
+    mlab.gcf().scene.parallel_projection = True # orthogonal projection
+    
+    my_model = MyModel()
+    my_model.configure_traits()
+   
 
 
 
