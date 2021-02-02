@@ -343,7 +343,7 @@ def draw_snapshot(itpfile, topfile, grofile, trrfile, bonds_alkyl, frame, filena
     positions    =[]
 
     
-    itpname = os.path.basename(itpfile).strip('.itp')
+    itpname = os.path.basename(itpfile).replace('.itp','')
 
     bonds_permol = get_bonds_per_molecule(itpfile)
     num_atoms    = get_num_atoms(itpfile)
@@ -428,6 +428,109 @@ def draw_snapshot(itpfile, topfile, grofile, trrfile, bonds_alkyl, frame, filena
         
 
 
+def draw_snapshot_co(itpfiles, topfile, grofile, trrfile, bonds_alkyl, frame, filename, box, draw_box=True):
+    """Draw the minimal form of the simulation 
+    Takes in atom coordinates and bonds
+    """
+    
+    bonds_permol =[]
+    num_atoms    =[]
+    nmol         =[]
+    positions    =[]
+
+    
+    start=0
+    for i,itpfile in enumerate(itpfiles):
+        itpname = os.path.basename(itpfile).replace('.itp','')
+        bonds_permol += [get_bonds_per_molecule(itpfile)]
+        num_atoms    += [get_num_atoms(itpfile)]
+        nmol         += [get_num_molecules(topfile, itpname)]
+        positions    += [get_positions(grofile, trrfile, (start,start+num_atoms[i]*nmol[i]))]
+        start = num_atoms[i]*nmol[i]
+    
+    
+    num_frames = positions[0].shape[0]  
+    
+    
+    Lx = box['Lx']
+    Ly = box['Ly']
+    Lz = box['Lz']    
+
+
+    mol_color = [84,39,143,0.6] #[117,107,177, 0.6]
+    light_green = [161,215,106]
+    yellow = [255,255,191]
+    purple = [118,42,131]
+    pink = [197,27,125]
+    orange = [255,127,0]
+    blue = [158,154,200]
+    red = [217,95,14]
+    mol_color = [84,39,143,0.6]
+    alkyl_color = purple+[0.6]
+    pep_color = light_green+[0.6]
+
+    # colors = [blue+[0.6], red+[0.6], light_green+[0.6]]
+    colors = [[255, 201, 60, 0.7]] + [ [7,104,159, 0.7] ]
+    
+    src  = [[]]*len(itpfiles)
+    surf = [[]]*len(itpfiles)
+    def dump_frame(frame):
+        mlab.options.offscreen = True
+        fig=mlab.figure(1, bgcolor=(1, 1, 1), fgcolor=(0, 0, 0), size=(800, 800))
+        mlab.clf()
+        
+        for k in range(len(itpfiles)):
+            positions_ = positions[k]
+            bonds_permol_ = bonds_permol[k]
+            num_atoms_ = num_atoms[k]
+            nmol_ = nmol[k]
+            color_ = colors[k]
+
+            connections = []
+            connections_alkyl = []
+            connections_pep = []
+            for i in range(nmol_):
+                for bond in bonds_permol_:
+                    X1 = positions_[ frame, bond[0] + num_atoms_*i ]
+                    X2 = positions_[ frame, bond[1] + num_atoms_*i ]
+                    if not np.linalg.norm(X1-X2) > 0.5*min( [Lx,Ly,Lz] ):
+                        connections = connections + [bond+num_atoms_*i]
+                        # if set(bond) in bonds_alkyl:
+                        #     connections_alkyl += [bond+num_atoms*i]
+                        # else:
+                        #     connections_pep   += [bond+num_atoms*i]
+
+            
+            X = positions_[frame]
+            connections = np.array(connections)
+            # connections_alkyl = np.array(connections_alkyl)
+            # connections_pep = np.array(connections_pep)
+
+
+            x=X[:,0]; y=X[:,1]; z=X[:,2]
+            src[k] = mlab.pipeline.scalar_scatter(x, y, z)
+            src[k].mlab_source.dataset.lines = connections
+            src[k].update()
+            surf[k] = mlab.pipeline.surface(src[k], color=tuple(np.array(color_[:3])/255),
+                    opacity=color_[3], line_width=2.0, figure=fig)
+
+        if draw_box:
+            box_color = [0,0,0,0.6]#[204,204,204, 0.7]
+            mlab_box(box_color, box)
+            mlab_drawaxes(box_color, box)
+            
+        mlab.view(azimuth=35, elevation=35, roll=0, distance=40, focalpoint=None)
+        fig.scene.parallel_projection = True # orthogonal projection
+        
+        
+        mlab.savefig(filename)
+        mlab.close()
+
+
+
+    
+    dump_frame(frame)
+        
 
 
 
@@ -696,8 +799,7 @@ def run_animation(box):
 
 
 
-def interactive_scene(itpfile, topfile, grofile, trrfile, bonds_alkyl, 
-    box, draw_box=True, mol_indices=None, atom_indices=None, centralize=False, unbreak_molecules=False):
+def interactive_scene(itpfile, topfile, grofile, trrfile, bonds_alkyl, draw_box=True, mol_indices=None, atom_indices=None, centralize=False, unbreak_molecules=False):
     ''' itpnames is the list of names of different molecules that
     mol_indices is a list of molecules indices to be drawn. None will draw all molecules
     '''
@@ -714,11 +816,10 @@ def interactive_scene(itpfile, topfile, grofile, trrfile, bonds_alkyl,
     nmol         = get_num_molecules(topfile, itpname)
     positions    = get_positions(grofile, trrfile, (0,num_atoms*nmol))
     
+    traj = md.load_trr(trr, top=gro)
+    Lx, Ly, Lz = traj.unitcell_lengths[-1]
+    box = dict(Lx=Lx, Ly=Ly, Lz=Lz)
 
-    Lx = box['Lx']
-    Ly = box['Ly']
-    Lz = box['Lz']    
-    
     num_frames = positions.shape[0]  
     
 
@@ -1064,7 +1165,7 @@ def interactive_scene_Janus_coloring(itpfile, topfile, grofile, trrfile, bonds_a
 
 
 
-def interactive_scene_co(itpfiles, topfile, grofile, trrfile, box):
+def interactive_scene_co(itpfiles, topfile, grofile, trrfile):
     # itpnames is the list of names of different molecules that     
 
     bonds_permol =[]
@@ -1081,9 +1182,9 @@ def interactive_scene_co(itpfiles, topfile, grofile, trrfile, box):
         positions    += [get_positions(grofile, trrfile, (start,start+num_atoms[i]*nmol[i]))]
         start = num_atoms[i]*nmol[i]
     
-    Lx = box['Lx']
-    Ly = box['Ly']
-    Lz = box['Lz']    
+    traj = md.load_trr(trrfile, top=grofile)
+    Lx, Ly, Lz = traj.unitcell_lengths[-1]
+    box = dict(Lx=Lx, Ly=Ly, Lz=Lz)
     
     num_frames = positions[0].shape[0]  
         
@@ -1100,10 +1201,11 @@ def interactive_scene_co(itpfiles, topfile, grofile, trrfile, box):
     alkyl_color = purple+[0.6]
     pep_color = light_green+[0.6]
 
-    colors = [blue+[0.6], red+[0.6], light_green+[0.6]]
-
-    src  = [[]]*len(itpfile)
-    surf = [[]]*len(itpfile)
+    # colors = [blue+[0.6], red+[0.6], light_green+[0.6]]
+    colors = [[255, 201, 60, 0.7]] + [ [7,104,159, 0.7] ]
+    
+    src  = [[]]*len(itpfiles)
+    surf = [[]]*len(itpfiles)
     def draw_frame(frame, fig):
 
         for k in range(len(itpfiles)):
@@ -1139,7 +1241,7 @@ def interactive_scene_co(itpfiles, topfile, grofile, trrfile, box):
             src[k].mlab_source.dataset.lines = connections
             src[k].update()
             surf[k] = mlab.pipeline.surface(src[k], color=tuple(np.array(color_[:3])/255),
-                    opacity=color_[3], line_width=1.0, figure=fig)
+                    opacity=color_[3], line_width=2.0, figure=fig)
 
         
         
