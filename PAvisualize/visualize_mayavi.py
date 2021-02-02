@@ -122,7 +122,7 @@ def get_num_molecules(topfile, name):
 
 
 
-def get_positions(gro, trr, atom_range):
+def get_positions(grofile, trajfile, atom_range):
     """Returns all the wrapped positions the MARTINI simulation trajectory
     for a molecule. 
     Returns trajectory of atom_range = (start, end)
@@ -130,9 +130,8 @@ def get_positions(gro, trr, atom_range):
 
 
 
-    traj = md.load_trr(trr, top=gro)
-    # print(traj)
-    # raise
+    # traj = md.load_trr(trr, top=gro)
+    traj = md.load(trajfile, top=grofile)
 
     # positions = []
     # u = MDAnalysis.Universe(gro, trr)
@@ -1165,7 +1164,7 @@ def interactive_scene_Janus_coloring(itpfile, topfile, grofile, trrfile, bonds_a
 
 
 
-def interactive_scene_co(itpfiles, topfile, grofile, trrfile):
+def interactive_scene_co(itpfiles, topfile, grofile, trajfile):
     # itpnames is the list of names of different molecules that     
 
     bonds_permol =[]
@@ -1179,13 +1178,13 @@ def interactive_scene_co(itpfiles, topfile, grofile, trrfile):
         bonds_permol += [get_bonds_per_molecule(itpfile)]
         num_atoms    += [get_num_atoms(itpfile)]
         nmol         += [get_num_molecules(topfile, itpname)]
-        positions    += [get_positions(grofile, trrfile, (start,start+num_atoms[i]*nmol[i]))]
+        positions    += [get_positions(grofile, trajfile, (start,start+num_atoms[i]*nmol[i]))]
         start = num_atoms[i]*nmol[i]
     
-    traj = md.load_trr(trrfile, top=grofile)
+    traj = md.load(trajfile, top=grofile)
     Lx, Ly, Lz = traj.unitcell_lengths[-1]
     box = dict(Lx=Lx, Ly=Ly, Lz=Lz)
-    
+    print(box)
     num_frames = positions[0].shape[0]  
         
 
