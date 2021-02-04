@@ -1184,7 +1184,7 @@ def interactive_scene_co(itpfiles, topfile, grofile, trajfile):
     traj = md.load(trajfile, top=grofile)
     Lx, Ly, Lz = traj.unitcell_lengths[-1]
     box = dict(Lx=Lx, Ly=Ly, Lz=Lz)
-    print(box)
+    
     num_frames = positions[0].shape[0]  
         
 
