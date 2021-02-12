@@ -798,7 +798,7 @@ def run_animation(box):
 
 
 
-def interactive_scene(itpfile, topfile, grofile, trrfile, bonds_alkyl, draw_box=True, mol_indices=None, atom_indices=None, centralize=False, unbreak_molecules=False):
+def interactive_scene(itpfile, topfile, grofile, trajfile, bonds_alkyl, draw_box=True, mol_indices=None, atom_indices=None, centralize=False, unbreak_molecules=False):
     ''' itpnames is the list of names of different molecules that
     mol_indices is a list of molecules indices to be drawn. None will draw all molecules
     '''
@@ -813,9 +813,9 @@ def interactive_scene(itpfile, topfile, grofile, trrfile, bonds_alkyl, draw_box=
     bonds_permol = get_bonds_per_molecule(itpfile)
     num_atoms    = get_num_atoms(itpfile)
     nmol         = get_num_molecules(topfile, itpname)
-    positions    = get_positions(grofile, trrfile, (0,num_atoms*nmol))
+    positions    = get_positions(grofile, trajfile, (0,num_atoms*nmol))
     
-    traj = md.load_trr(trr, top=gro)
+    traj = md.load(trajfile, top=grofile)
     Lx, Ly, Lz = traj.unitcell_lengths[-1]
     box = dict(Lx=Lx, Ly=Ly, Lz=Lz)
 
