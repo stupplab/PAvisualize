@@ -331,7 +331,7 @@ def draw_points_and_lines(points, lines, color, filename):
 
 
 
-def draw_snapshot(itpfile, topfile, grofile, trrfile, bonds_alkyl, frame, filename, box, draw_box=True):
+def draw_snapshot(itpfile, topfile, grofile, trajfile, bonds_alkyl, frame, filename, draw_box=True):
     """Draw the minimal form of the simulation 
     Takes in atom coordinates and bonds
     """
@@ -347,17 +347,15 @@ def draw_snapshot(itpfile, topfile, grofile, trrfile, bonds_alkyl, frame, filena
     bonds_permol = get_bonds_per_molecule(itpfile)
     num_atoms    = get_num_atoms(itpfile)
     nmol         = get_num_molecules(topfile, itpname)
-    positions    = get_positions(grofile, trrfile, (0,num_atoms*nmol))
+    positions    = get_positions(grofile, trajfile, (0,num_atoms*nmol))
     
+    traj = md.load(trajfile, top=grofile)
+    Lx, Ly, Lz = traj.unitcell_lengths[-1]
+    box = dict(Lx=Lx, Ly=Ly, Lz=Lz)
     
     num_frames = positions.shape[0]  
     
     
-    Lx = box['Lx']
-    Ly = box['Ly']
-    Lz = box['Lz']    
-
-
     light_green = [161,215,106]
     purple = [118,42,131]
     alkyl_color = purple+[0.6]
@@ -821,7 +819,7 @@ def interactive_scene(itpfile, topfile, grofile, trajfile, bonds_alkyl, draw_box
 
     num_frames = positions.shape[0]  
     
-
+    
     if mol_indices != None:
         positions = positions.reshape(-1,nmol,num_atoms,3)[:,mol_indices]
         nmol = len(mol_indices)
